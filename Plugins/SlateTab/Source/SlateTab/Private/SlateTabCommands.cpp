@@ -6,7 +6,7 @@
 
 void FSlateTabCommands::RegisterCommands()
 {
-	UI_COMMAND(PluginAction, "SlateTab", "Execute SlateTab action", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(PluginAction, "SlateTab", "Execute SlateTab action", EUserInterfaceActionType::Button, FInputChord());
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -3,8 +3,11 @@
 #include "SlateTab.h"
 #include "SlateTabStyle.h"
 #include "SlateTabCommands.h"
-#include "Misc/MessageDialog.h"
+#include "SlateTabTestWindow1UserWidget.h"
+#include "SlateTabTestWindow2UserWidget.h"
+#include "SlateTabTestWindow3UserWidget.h"
 #include "ToolMenus.h"
+#include "Containers/ArrayBuilder.h"
 
 static const FName SlateTabTabName("SlateTab");
 
@@ -27,6 +30,30 @@ void FSlateTabModule::StartupModule()
 		FCanExecuteAction());
 
 	UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FSlateTabModule::RegisterMenus));
+
+	TabArray =
+		TArrayBuilder<TPair<FName, TSubclassOf<UUserWidget>>>()
+		.Add(TPair<FName, TSubclassOf<UUserWidget>>(FName("TestTab1"), USlateTabTestWindow1UserWidget::StaticClass()))
+		.Add(TPair<FName, TSubclassOf<UUserWidget>>(FName("TestTab2"), USlateTabTestWindow2UserWidget::StaticClass()))
+		.Add(TPair<FName, TSubclassOf<UUserWidget>>(FName("TestTab3"), USlateTabTestWindow3UserWidget::StaticClass()));
+	
+	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(SlateTabTabName, FOnSpawnTab::CreateRaw(this, &FSlateTabModule::OnSpawnPluginTab))
+							.SetMenuType(ETabSpawnerMenuType::Hidden);
+
+	for (const auto& Tab : TabArray)
+	{
+		FGlobalTabmanager::Get()->RegisterNomadTabSpawner(Tab.Key, FOnSpawnTab::CreateLambda(
+			                                                  [Tab](const FSpawnTabArgs& SpawnTabArgs)
+			                                                  {
+				                                                  const auto UserWidget = CreateWidget<UUserWidget>(
+					                                                  GWorld->GetWorld(), Tab.Value);
+
+				                                                  return SNew(SDockTab).TabRole(ETabRole::NomadTab)
+				                                                  [
+					                                                  UserWidget->TakeWidget()
+				                                                  ];
+			                                                  })).SetMenuType(ETabSpawnerMenuType::Hidden);
+	}
 }
 
 void FSlateTabModule::ShutdownModule()
@@ -41,17 +68,44 @@ void FSlateTabModule::ShutdownModule()
 	FSlateTabStyle::Shutdown();
 
 	FSlateTabCommands::Unregister();
+
+	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(SlateTabTabName);
 }
 
 void FSlateTabModule::PluginButtonClicked()
 {
-	// Put your "OnButtonClicked" stuff here
-	FText DialogText = FText::Format(
-							LOCTEXT("PluginButtonDialogText", "Add code to {0} in {1} to override this button's actions"),
-							FText::FromString(TEXT("FSlateTabModule::PluginButtonClicked()")),
-							FText::FromString(TEXT("SlateTab.cpp"))
-					   );
-	FMessageDialog::Open(EAppMsgType::Ok, DialogText);
+	FGlobalTabmanager::Get()->TryInvokeTab(SlateTabTabName);
+}
+
+TSharedRef<SDockTab> FSlateTabModule::OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs)
+{
+	const auto NomadTab = SNew(SDockTab).TabRole(ETabRole::NomadTab);
+
+	if (!TabManager.IsValid())
+	{
+		TabManager = FGlobalTabmanager::Get()->NewTabManager(NomadTab);
+	}
+
+	if (!TabManagerLayout.IsValid())
+	{
+		const auto NewStack = FTabManager::NewStack();
+
+		for (const auto& Tab : TabArray)
+		{
+			NewStack->AddTab(Tab.Key, ETabState::OpenedTab);
+		}
+
+		TabManagerLayout = FTabManager::NewLayout(SlateTabTabName)->AddArea(
+			FTabManager::NewPrimaryArea()->SetOrientation(Orient_Horizontal)->Split(
+				NewStack));
+	}
+
+	const auto TabContent = TabManager->RestoreFrom(TabManagerLayout.ToSharedRef(), TSharedPtr<SWindow>()).
+	                                    ToSharedRef();
+
+	NomadTab->SetContent(TabContent);
+
+	return NomadTab;
 }
 
 void FSlateTabModule::RegisterMenus()

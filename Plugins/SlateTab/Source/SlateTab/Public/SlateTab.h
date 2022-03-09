@@ -18,12 +18,21 @@ public:
 	
 	/** This function will be bound to Command. */
 	void PluginButtonClicked();
+
+	TSharedRef<SDockTab> OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs);
 	
 private:
 
 	void RegisterMenus();
 
+private:
+	TSharedPtr<FUICommandList> PluginCommands;
 
 private:
-	TSharedPtr<class FUICommandList> PluginCommands;
+	TArray<TPair<FName, TSubclassOf<UUserWidget>>> TabArray;
+
+private:
+	TSharedPtr<FTabManager> TabManager;
+
+	TSharedPtr<FTabManager::FLayout> TabManagerLayout;
 };
