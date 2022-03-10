@@ -29,7 +29,7 @@ private:
 	TSharedPtr<FUICommandList> PluginCommands;
 
 private:
-	TArray<TPair<FName, TSubclassOf<UUserWidget>>> TabArray;
+	TArray<TPair<FName, TSharedPtr<SWidget>>> TabArray;
 
 private:
 	TSharedPtr<FTabManager> TabManager;

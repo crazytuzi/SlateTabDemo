@@ -3,9 +3,9 @@
 #include "SlateTab.h"
 #include "SlateTabStyle.h"
 #include "SlateTabCommands.h"
-#include "SlateTabTestWindow1UserWidget.h"
-#include "SlateTabTestWindow2UserWidget.h"
-#include "SlateTabTestWindow3UserWidget.h"
+#include "SSlateTabTestWindow1Widget.h"
+#include "SSlateTabTestWindow2Widget.h"
+#include "SSlateTabTestWindow3Widget.h"
 #include "ToolMenus.h"
 #include "Containers/ArrayBuilder.h"
 
@@ -32,10 +32,10 @@ void FSlateTabModule::StartupModule()
 	UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FSlateTabModule::RegisterMenus));
 
 	TabArray =
-		TArrayBuilder<TPair<FName, TSubclassOf<UUserWidget>>>()
-		.Add(TPair<FName, TSubclassOf<UUserWidget>>(FName("TestTab1"), USlateTabTestWindow1UserWidget::StaticClass()))
-		.Add(TPair<FName, TSubclassOf<UUserWidget>>(FName("TestTab2"), USlateTabTestWindow2UserWidget::StaticClass()))
-		.Add(TPair<FName, TSubclassOf<UUserWidget>>(FName("TestTab3"), USlateTabTestWindow3UserWidget::StaticClass()));
+		TArrayBuilder<TPair<FName, TSharedPtr<SWidget>>>()
+		.Add(TPair<FName, TSharedPtr<SWidget>>(FName("TestTab1"), SNew(SSlateTabTestWindow1Widget)))
+		.Add(TPair<FName, TSharedPtr<SWidget>>(FName("TestTab2"), SNew(SSlateTabTestWindow2Widget)))
+		.Add(TPair<FName, TSharedPtr<SWidget>>(FName("TestTab3"), SNew(SSlateTabTestWindow3Widget)));
 	
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(SlateTabTabName, FOnSpawnTab::CreateRaw(this, &FSlateTabModule::OnSpawnPluginTab))
 							.SetMenuType(ETabSpawnerMenuType::Hidden);
@@ -45,12 +45,9 @@ void FSlateTabModule::StartupModule()
 		FGlobalTabmanager::Get()->RegisterNomadTabSpawner(Tab.Key, FOnSpawnTab::CreateLambda(
 			                                                  [Tab](const FSpawnTabArgs& SpawnTabArgs)
 			                                                  {
-				                                                  const auto UserWidget = CreateWidget<UUserWidget>(
-					                                                  GWorld->GetWorld(), Tab.Value);
-
 				                                                  return SNew(SDockTab).TabRole(ETabRole::NomadTab)
 				                                                  [
-					                                                  UserWidget->TakeWidget()
+					                                                  Tab.Value->AsShared()
 				                                                  ];
 			                                                  })).SetMenuType(ETabSpawnerMenuType::Hidden);
 	}
@@ -93,6 +90,11 @@ TSharedRef<SDockTab> FSlateTabModule::OnSpawnPluginTab(const FSpawnTabArgs& Spaw
 		for (const auto& Tab : TabArray)
 		{
 			NewStack->AddTab(Tab.Key, ETabState::OpenedTab);
+		}
+
+		if (!TabArray.IsEmpty())
+		{
+			NewStack->SetForegroundTab(TabArray[0].Key);
 		}
 
 		TabManagerLayout = FTabManager::NewLayout(SlateTabTabName)->AddArea(
